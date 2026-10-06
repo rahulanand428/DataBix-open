@@ -7,7 +7,7 @@
 - Docker Compose orchestrates the API, databases, cache, Nginx, Grafana, Loki, and Grafana Alloy.
 - GitHub Actions runs tests and Compose health checks, then publishes multi-architecture application images to GHCR.
 
-DataBix-open is a blueprint for a small data service with clear API, ingestion, persistence, authentication, caching, and observability layers.
+DataBix-open is a blueprint for a small data service with clear API, ingestion, persistence, authentication, caching, telemetry and observability layers.
 
 ## Contents
 
