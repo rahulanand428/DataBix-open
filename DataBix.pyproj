@@ -22,28 +22,52 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="api\v1\routers\short_selling.py" />
+    <Compile Include="api\v1\routers\__init__.py" />
+    <Compile Include="api\v1\schemas\short_selling.py" />
+    <Compile Include="api\v1\schemas\__init__.py" />
+    <Compile Include="api\v1\__init__.py" />
+    <Compile Include="api\__init__.py" />
     <Compile Include="database.py" />
     <Compile Include="ingestion.py" />
+    <Compile Include="ingestion\short_selling.py" />
+    <Compile Include="ingestion\__init__.py" />
+    <Compile Include="ingestion\__main__.py" />
     <Compile Include="main.py" />
     <Compile Include="models.py" />
+    <Compile Include="repositories\short_selling_repository.py" />
+    <Compile Include="repositories\__init__.py" />
+    <Compile Include="services\short_selling_service.py" />
+    <Compile Include="services\__init__.py" />
+    <Compile Include="tests\conftest.py" />
+    <Compile Include="tests\test_auth.py" />
     <Compile Include="tests\test_main.py" />
+    <Compile Include="tests\test_short_selling.py" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="docs\" />
-    <Folder Include="Skills\" />
+    <Folder Include="skills\" />
     <Folder Include="tests\" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include=".dockerignore" />
+    <Content Include=".env.example" />
+    <Content Include=".gitignore" />
+    <Content Include="docker-compose.yml" />
     <Content Include="Dockerfile" />
     <Content Include="docs\architecture.md" />
+    <Content Include="docs\authentication.md" />
     <Content Include="docs\database.md" />
+    <Content Include="docs\end-to-end-testing.md" />
     <Content Include="docs\ingestion.md" />
     <Content Include="docs\main.md" />
     <Content Include="docs\models.md" />
+    <Content Include="docs\short-selling-flow.md" />
     <Content Include="docs\tests.md" />
+    <Content Include="nginx.conf" />
     <Content Include="pytest.ini" />
     <Content Include="requirements.txt" />
-    <Content Include="Skills\Initial.md" />
+    <Content Include="skills\Initial.md" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in
