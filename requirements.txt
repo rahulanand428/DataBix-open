@@ -1,0 +1,26 @@
+# Core Framework
+fastapi>=0.110.0,<0.116.0
+
+# Production ASGI Web Server
+uvicorn[standard]>=0.28.0,<0.35.0
+
+# Database & Data Processing Layers
+SQLAlchemy>=2.0,<3.0
+psycopg[binary]>=3.1,<4.0
+pymongo>=4.6,<5.0
+redis>=5.0,<6.0
+pandas>=2.2,<3.0
+
+# Authentication
+python-jose[cryptography]>=3.3.0,<4.0
+passlib[bcrypt]>=1.7.4,<2.0
+bcrypt>=4.0.1,<4.1
+python-multipart>=0.0.9,<1.0
+
+# Model Context Protocol server
+mcp>=1.0,<2.0
+
+# Testing Utilities
+pytest>=8.0,<9.0
+pytest-asyncio>=0.23,<1.0
+httpx>=0.27,<1.0

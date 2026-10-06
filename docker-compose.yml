@@ -1,0 +1,165 @@
+services:
+
+  # =========================================================================
+  # REVERSE PROXY LAYER (Secure entry point for  React App)
+  # =========================================================================
+  reverse_proxy:
+    image: nginx:alpine
+    container_name: nginx_proxy
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # =========================================================================
+  # APPLICATION CORE LAYER (FastAPI API Engines)
+  # =========================================================================
+  backend:
+    build: .
+    image: ${BACKEND_IMAGE:-databix:local}
+    container_name: fastapi_backend
+    ports:
+      - "127.0.0.1:8000:8000"
+    labels:
+      # Crucial: Instructs Grafana Alloy to automatically capture this container's console logs
+      collect_logs: "true"
+      service_name: "fastapi-service"
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+      DATABASE_URL: ${DATABASE_URL:-}
+      POSTGRES_HOST: postgres_db
+      POSTGRES_USER: ${POSTGRES_USER:-postgre}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secretpass}
+      POSTGRES_DB: ${POSTGRES_DB:-databix_hot}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in env file}
+      MONGODB_URI: ${MONGODB_URI:-}
+      MONGO_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-root}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-secretpassword}
+      MONGODB_DATABASE: ${MONGODB_DATABASE:-databix_cold}
+      REDIS_URL: ${REDIS_URL:-redis://redis_cache:6379/0}
+    volumes:
+      - ./backend_data:/app/data
+      - ./datafiles:/app/datafiles:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: "json-file"
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis_cache:
+        condition: service_healthy
+
+  # =========================================================================
+  # AI AGENT LAYER (MCP Proxy Client Engine)
+  # =========================================================================
+  mcp_server:
+    build: .
+    image: ${BACKEND_IMAGE:-databix:local}
+    container_name: mcp_analytics_server
+    command: python /app/mcp/mcp_server.py
+    stdin_open: true
+    tty: true
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+      BACKEND_INTERNAL_URL: "http://fastapi_backend:8000"
+      BACKEND_USERNAME: ${MCP_BACKEND_USERNAME:-}
+      BACKEND_PASSWORD: ${MCP_BACKEND_PASSWORD:-}
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # =========================================================================
+  # DATA STORAGE TIER (Multi-tiered Hot/Cold/Cache Storage Systems)
+  # =========================================================================
+  postgres_db:
+    image: postgres:16-alpine
+    container_name: postgres_db
+    #ports:
+      # Exposes port 5432 to local network for DBeaver/pgAdmin to connect safely
+     # - "5432:5432"
+    ports:
+      # If POSTGRES_PORT is set to "127.0.0.1:5432:5432", it only allows your local computer to connect.
+      # In production, you can set it to "5432" to bind internally, or rely completely on Docker's private bridge network.
+      - "${POSTGRES_PORT_BINDING:-127.0.0.1:5432:5432}"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgre}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secretpass}
+      POSTGRES_DB: ${POSTGRES_DB:-databix_hot}
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:latest
+    container_name: mongo_db
+    ports:
+      - "127.0.0.1:27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-secretpassword}
+    volumes:
+      - ./mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis_cache:
+    image: redis:alpine
+    container_name: redis_cache
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # =========================================================================
+  #  TELEMETRY & OBSERVABILITY TIER (Grafana LGTM Engine Minimal Edition)
+  # =========================================================================
+  loki:
+    image: grafana/loki:latest
+    container_name: telemetry_loki
+    ports:
+      - "127.0.0.1:3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+
+  alloy:
+    image: grafana/alloy:latest
+    container_name: telemetry_collector
+    ports:
+      - "127.0.0.1:12345:12345"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./config.alloy:/etc/alloy/config.alloy
+    command: run --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: telemetry_dashboard
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    depends_on:
+      - loki
