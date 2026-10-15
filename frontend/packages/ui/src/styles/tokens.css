@@ -1,0 +1,181 @@
+/*
+ * Design tokens. Neutrals, chart chrome and the categorical/status palettes come
+ * from the validated reference palette (see the dataviz notes in README);
+ * brand colours (--dbx-primary, --dbx-accent, --dbx-chart-1, --dbx-on-primary,
+ * --dbx-link) are written at runtime by @databix/sdk's applyBranding().
+ *
+ * Mode is resolved in JS (light, dark or system) and stamped as data-mode on
+ * <html>, so every rule below keys off one attribute.
+ */
+:root {
+  color-scheme: light;
+
+  --dbx-font-sans: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --dbx-font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+
+  --dbx-radius-xs: 4px;
+  --dbx-radius-sm: 6px;
+  --dbx-radius: 10px;
+  --dbx-radius-lg: 14px;
+
+  /* Surfaces & ink */
+  --dbx-page: #f9f9f7;
+  --dbx-surface: #fcfcfb;
+  --dbx-surface-2: #f3f2ee;
+  --dbx-surface-3: #e9e8e3;
+  --dbx-ink: #0b0b0b;
+  --dbx-ink-2: #52514e;
+  --dbx-muted: #6b6a65;
+  --dbx-border: rgba(11, 11, 11, 0.1);
+  --dbx-border-strong: rgba(11, 11, 11, 0.2);
+  --dbx-overlay: rgba(11, 11, 11, 0.4);
+  --dbx-shadow-sm: 0 1px 2px rgba(11, 11, 11, 0.05);
+  --dbx-shadow: 0 1px 3px rgba(11, 11, 11, 0.06), 0 4px 12px rgba(11, 11, 11, 0.04);
+  --dbx-shadow-lg: 0 16px 40px rgba(11, 11, 11, 0.16);
+
+  /* Brand (defaults; replaced at runtime) */
+  --dbx-primary: #2563eb;
+  --dbx-on-primary: #ffffff;
+  --dbx-link: #2563eb;
+  --dbx-accent: #0d9488;
+  --dbx-primary-hover: color-mix(in oklab, var(--dbx-primary) 86%, #000);
+  --dbx-primary-soft: color-mix(in oklab, var(--dbx-primary) 10%, var(--dbx-surface));
+  --dbx-primary-soft-2: color-mix(in oklab, var(--dbx-primary) 18%, var(--dbx-surface));
+  --dbx-focus-ring: color-mix(in oklab, var(--dbx-primary) 45%, transparent);
+
+  /* Chart chrome */
+  --dbx-chart-surface: var(--dbx-surface);
+  --dbx-chart-grid: #e1e0d9;
+  --dbx-chart-axis: #c3c2b7;
+  --dbx-chart-axis-text: #898781;
+  --dbx-chart-1: #2563eb;
+  --dbx-chart-muted: #c3c2b7;
+  --dbx-series-1: #2a78d6;
+  --dbx-series-2: #eb6834;
+  --dbx-series-3: #1baf7a;
+
+  /* Status (reserved meaning; always paired with icon + label) */
+  --dbx-good: #0ca30c;
+  --dbx-warning: #fab219;
+  --dbx-serious: #ec835a;
+  --dbx-critical: #d03b3b;
+  --dbx-good-text: #006300;
+  --dbx-warning-text: #7a4f00;
+  --dbx-critical-text: #a52626;
+  --dbx-good-soft: #e6f4e6;
+  --dbx-warning-soft: #fdf3dc;
+  --dbx-critical-soft: #fbe9e9;
+
+  /* Sidebar: dark by default (data-sidebar switches it) */
+  --dbx-sidebar-bg: #121211;
+  --dbx-sidebar-ink: #ecebe7;
+  --dbx-sidebar-muted: #9a9892;
+  --dbx-sidebar-hover: rgba(255, 255, 255, 0.06);
+  --dbx-sidebar-active-bg: rgba(255, 255, 255, 0.1);
+  --dbx-sidebar-active-ink: #ffffff;
+  --dbx-sidebar-border: rgba(255, 255, 255, 0.08);
+  --dbx-sidebar-mark: var(--dbx-primary);
+}
+
+:root[data-mode="dark"] {
+  color-scheme: dark;
+
+  --dbx-page: #0d0d0d;
+  --dbx-surface: #1a1a19;
+  --dbx-surface-2: #232321;
+  --dbx-surface-3: #2c2c2a;
+  --dbx-ink: #f0efec;
+  --dbx-ink-2: #c3c2b7;
+  --dbx-muted: #a3a29b;
+  --dbx-border: rgba(255, 255, 255, 0.1);
+  --dbx-border-strong: rgba(255, 255, 255, 0.2);
+  --dbx-overlay: rgba(0, 0, 0, 0.6);
+  --dbx-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --dbx-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
+  --dbx-shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
+  --dbx-primary-soft: color-mix(in oklab, var(--dbx-primary) 18%, var(--dbx-surface));
+  --dbx-primary-soft-2: color-mix(in oklab, var(--dbx-primary) 28%, var(--dbx-surface));
+
+  --dbx-chart-grid: #2c2c2a;
+  --dbx-chart-axis: #383835;
+  --dbx-chart-axis-text: #898781;
+  --dbx-chart-muted: #4a4a46;
+  --dbx-series-1: #3987e5;
+  --dbx-series-2: #d95926;
+  --dbx-series-3: #199e70;
+
+  --dbx-good-text: #0ca30c;
+  --dbx-warning-text: #fab219;
+  --dbx-critical-text: #e66767;
+  --dbx-good-soft: rgba(12, 163, 12, 0.14);
+  --dbx-warning-soft: rgba(250, 178, 25, 0.14);
+  --dbx-critical-soft: rgba(208, 59, 59, 0.18);
+
+  --dbx-sidebar-bg: #121211;
+}
+
+:root[data-sidebar="light"],
+.dbx-brand-scope[data-sidebar="light"] {
+  --dbx-sidebar-bg: var(--dbx-surface);
+  --dbx-sidebar-ink: var(--dbx-ink);
+  --dbx-sidebar-muted: var(--dbx-muted);
+  --dbx-sidebar-hover: var(--dbx-surface-2);
+  --dbx-sidebar-active-bg: var(--dbx-primary-soft-2);
+  --dbx-sidebar-active-ink: var(--dbx-ink);
+  --dbx-sidebar-border: var(--dbx-border);
+}
+
+:root[data-sidebar="brand"],
+.dbx-brand-scope[data-sidebar="brand"] {
+  --dbx-sidebar-bg: var(--dbx-primary);
+  --dbx-sidebar-ink: var(--dbx-on-primary);
+  --dbx-sidebar-muted: color-mix(in oklab, var(--dbx-on-primary) 72%, var(--dbx-primary));
+  --dbx-sidebar-hover: color-mix(in oklab, var(--dbx-on-primary) 10%, transparent);
+  --dbx-sidebar-active-bg: color-mix(in oklab, var(--dbx-on-primary) 18%, transparent);
+  --dbx-sidebar-active-ink: var(--dbx-on-primary);
+  --dbx-sidebar-border: color-mix(in oklab, var(--dbx-on-primary) 16%, transparent);
+  --dbx-sidebar-mark: var(--dbx-on-primary);
+}
+
+:root[data-radius="sharp"],
+.dbx-brand-scope[data-radius="sharp"] {
+  --dbx-radius-xs: 2px;
+  --dbx-radius-sm: 3px;
+  --dbx-radius: 4px;
+  --dbx-radius-lg: 6px;
+}
+
+:root[data-radius="round"],
+.dbx-brand-scope[data-radius="round"] {
+  --dbx-radius-xs: 6px;
+  --dbx-radius-sm: 10px;
+  --dbx-radius: 16px;
+  --dbx-radius-lg: 22px;
+}
+
+/* A branding preview re-derives brand-dependent tokens from its own scoped
+ * --dbx-primary (custom properties resolve where they are declared). */
+.dbx-brand-scope {
+  --dbx-primary-hover: color-mix(in oklab, var(--dbx-primary) 86%, #000);
+  --dbx-primary-soft: color-mix(in oklab, var(--dbx-primary) 10%, var(--dbx-surface));
+  --dbx-primary-soft-2: color-mix(in oklab, var(--dbx-primary) 18%, var(--dbx-surface));
+  --dbx-focus-ring: color-mix(in oklab, var(--dbx-primary) 45%, transparent);
+  --dbx-sidebar-mark: var(--dbx-primary);
+}
+
+.dbx-brand-scope[data-sidebar="dark"] {
+  --dbx-sidebar-bg: #121211;
+  --dbx-sidebar-ink: #ecebe7;
+  --dbx-sidebar-muted: #9a9892;
+  --dbx-sidebar-hover: rgba(255, 255, 255, 0.06);
+  --dbx-sidebar-active-bg: rgba(255, 255, 255, 0.1);
+  --dbx-sidebar-active-ink: #ffffff;
+  --dbx-sidebar-border: rgba(255, 255, 255, 0.08);
+}
+
+.dbx-brand-scope[data-radius="default"] {
+  --dbx-radius-xs: 4px;
+  --dbx-radius-sm: 6px;
+  --dbx-radius: 10px;
+  --dbx-radius-lg: 14px;
+}

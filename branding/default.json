@@ -1,0 +1,14 @@
+{
+  "product_name": "DataBix",
+  "tagline": "Short-selling intelligence",
+  "login_headline": "Market short-selling activity, at a glance",
+  "primary_color": "#2563EB",
+  "accent_color": "#0D9488",
+  "sidebar_style": "dark",
+  "font_family": "Inter",
+  "radius": "default",
+  "default_theme": "system",
+  "footer_text": "",
+  "support_email": null,
+  "show_powered_by": true
+}

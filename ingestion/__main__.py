@@ -11,7 +11,7 @@ def main() -> None:
     parser.add_argument("--chunk-size", type=int, default=1_000)
     args = parser.parse_args()
 
-    result = ShortSellingService().ingest_csv(args.csv, chunk_size=args.chunk_size)
+    result = ShortSellingService().ingest_path(args.csv, chunk_size=args.chunk_size)
     print(
         f"Processed {result.mongo_rows} rows from {result.source_file}; "
         f"inserted {result.postgres_rows} new PostgreSQL rows; "

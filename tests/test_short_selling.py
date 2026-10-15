@@ -15,43 +15,44 @@ from database import Base
 from auth.dependencies import get_current_user
 from ingestion.short_selling import ingest_short_selling_csv
 from main import app
+from services.ingestion_runs import get_ingestion_recorder
+from tests.conftest import FakeRedis
 from models import ShortSellingMaster
 from repositories.short_selling_repository import ShortSellingRepository
-from services.short_selling_service import CACHE_KEY_PREFIX, ShortSellingService, get_short_selling_service
+from services.short_selling_service import (
+    CACHE_KEY_PREFIX,
+    IngestionInProgressError,
+    InvalidIngestionFilenameError,
+    ShortSellingService,
+    get_short_selling_service,
+)
 from services import short_selling_service as short_selling_service_module
+
+
+class FakeRecorder:
+    def __init__(self) -> None:
+        self.events: list[tuple[str, Any]] = []
+
+    def start(self, filename: str, triggered_by: str) -> int:
+        self.events.append(("start", filename))
+        return 1
+
+    def finish(self, run_id: int, result: Any) -> None:
+        self.events.append(("finish", result.postgres_rows))
+
+    def fail(self, run_id: int, reason: str) -> None:
+        self.events.append(("fail", reason))
 
 
 @pytest.fixture(autouse=True)
 def authenticated_test_user() -> Any:
     app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
-        id=1, username="test-user", is_active=True
+        id=1, username="test-user", is_active=True, is_admin=True
     )
+    app.dependency_overrides[get_ingestion_recorder] = FakeRecorder
     yield
     app.dependency_overrides.pop(get_current_user, None)
-
-
-class FakeRedis:
-    def __init__(self) -> None:
-        self.values: dict[str, str] = {}
-        self.get_calls = 0
-        self.set_calls = 0
-
-    def get(self, key: str) -> str | None:
-        self.get_calls += 1
-        return self.values.get(key)
-
-    def set(self, key: str, value: str, ex: int) -> None:
-        self.set_calls += 1
-        self.values[key] = value
-
-    def scan_iter(self, match: str, count: int) -> list[str]:
-        return [key for key in self.values if key.startswith(f"{CACHE_KEY_PREFIX}:")]
-
-    def delete(self, *keys: str) -> int:
-        deleted = 0
-        for key in keys:
-            deleted += self.values.pop(key, None) is not None
-        return deleted
+    app.dependency_overrides.pop(get_ingestion_recorder, None)
 
 
 class FakeCollection:
@@ -338,7 +339,7 @@ def test_csv_ingestion_writes_mongo_before_postgres_and_invalidates_cache(
         session_factory=session_factory,
     )
 
-    result = service.ingest_csv(str(csv_path), chunk_size=100)
+    result = service.ingest_path(csv_path, chunk_size=100)
 
     assert result.mongo_rows == 3
     assert result.postgres_rows == 3
@@ -351,7 +352,7 @@ def test_csv_ingestion_writes_mongo_before_postgres_and_invalidates_cache(
     assert 1512 in compiled.params.values()
 
     redis.values[f"{CACHE_KEY_PREFIX}:valid"] = "cached"
-    repeated = service.ingest_csv(str(csv_path), chunk_size=100)
+    repeated = service.ingest_path(csv_path, chunk_size=100)
 
     assert repeated.mongo_rows == 3
     assert repeated.postgres_rows == 0
@@ -359,3 +360,114 @@ def test_csv_ingestion_writes_mongo_before_postgres_and_invalidates_cache(
     assert events == ["mongo", "postgres", "mongo", "postgres"]
     assert len(mongo.collection.operations) == 6
     assert redis.values == {f"{CACHE_KEY_PREFIX}:valid": "cached"}
+    first_upsert = mongo.collection.operations[0]._doc
+    assert "ingested_at" in first_upsert["$setOnInsert"]
+    assert "ingested_at" not in first_upsert["$set"]
+
+
+@pytest.mark.asyncio
+async def test_ingestion_endpoint_requires_admin() -> None:
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        id=2, username="reader", is_active=True, is_admin=False
+    )
+    called: list[str | None] = []
+    app.dependency_overrides[get_short_selling_service] = lambda: SimpleNamespace(
+        ingest_csv=lambda filename=None: called.append(filename)
+    )
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post("/api/v1/short-selling/ingest")
+    finally:
+        app.dependency_overrides.pop(get_short_selling_service, None)
+
+    assert response.status_code == 403
+    assert called == []
+
+
+@pytest.mark.asyncio
+async def test_ingestion_endpoint_hides_csv_parser_details() -> None:
+    def ingest_csv(filename: str | None = None) -> None:
+        raise ValueError("Invalid date or quantity in CSV chunk row 7: {'Symbol': 'SECRET'}")
+
+    app.dependency_overrides[get_short_selling_service] = lambda: SimpleNamespace(
+        ingest_csv=ingest_csv
+    )
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post("/api/v1/short-selling/ingest")
+    finally:
+        app.dependency_overrides.pop(get_short_selling_service, None)
+
+    assert response.status_code == 400
+    assert "SECRET" not in response.text
+
+
+@pytest.mark.asyncio
+async def test_ingestion_endpoint_reports_concurrent_run() -> None:
+    def ingest_csv(filename: str | None = None) -> None:
+        raise IngestionInProgressError("An ingestion is already running")
+
+    app.dependency_overrides[get_short_selling_service] = lambda: SimpleNamespace(
+        ingest_csv=ingest_csv
+    )
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post("/api/v1/short-selling/ingest")
+    finally:
+        app.dependency_overrides.pop(get_short_selling_service, None)
+
+    assert response.status_code == 409
+
+
+def test_ingestion_service_allows_one_run_at_a_time(tmp_path: Path) -> None:
+    service = ShortSellingService(
+        repository=SimpleNamespace(),
+        redis_client=FakeRedis(),
+        mongo_database=FakeMongoDatabase([]),
+        session_factory=SimpleNamespace(),
+    )
+    assert short_selling_service_module._INGESTION_LOCK.acquire(blocking=False)
+    try:
+        with pytest.raises(IngestionInProgressError):
+            service.ingest_path(tmp_path / "any.csv")
+    finally:
+        short_selling_service_module._INGESTION_LOCK.release()
+
+
+def test_ingestion_service_rejects_absolute_paths_from_api_callers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(short_selling_service_module, "DATAFILES_DIRECTORY", tmp_path)
+    outside = tmp_path.parent / "outside.csv"
+    service = ShortSellingService(
+        repository=SimpleNamespace(),
+        redis_client=FakeRedis(),
+        mongo_database=FakeMongoDatabase([]),
+        session_factory=SimpleNamespace(),
+    )
+
+    with pytest.raises(InvalidIngestionFilenameError):
+        service.ingest_csv(filename=str(outside))
+
+
+@pytest.mark.asyncio
+async def test_short_selling_endpoint_rejects_oversized_offset(api_service: Any) -> None:
+    service, _ = api_service
+    app.dependency_overrides[get_short_selling_service] = lambda: service
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.get(
+                "/api/v1/short-selling", params={"offset": 10**30}
+            )
+    finally:
+        app.dependency_overrides.pop(get_short_selling_service, None)
+
+    assert response.status_code == 422

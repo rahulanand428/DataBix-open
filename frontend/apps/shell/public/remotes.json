@@ -1,0 +1,34 @@
+{
+  "remotes": [
+    { "name": "overview", "entry": "/mfe/overview/remoteEntry.js", "routes": ["/overview"], "rangeScoped": ["/overview"] },
+    { "name": "explorer", "entry": "/mfe/explorer/remoteEntry.js", "routes": ["/explorer"], "rangeScoped": ["/explorer"] },
+    { "name": "symbols", "entry": "/mfe/symbols/remoteEntry.js", "routes": ["/symbols", "/compare", "/watchlist"], "rangeScoped": ["/symbols/", "/compare"] },
+    { "name": "assistant", "entry": "/mfe/assistant/remoteEntry.js", "routes": ["/assistant"] },
+    { "name": "admin", "entry": "/mfe/admin/remoteEntry.js", "routes": ["/admin"], "adminOnly": true }
+  ],
+  "navigation": [
+    {
+      "title": "Analytics",
+      "items": [
+        { "title": "Overview", "path": "/overview", "icon": "layout-dashboard" },
+        { "title": "Explorer", "path": "/explorer", "icon": "table" },
+        { "title": "Symbols", "path": "/symbols", "icon": "chart-line" },
+        { "title": "Compare", "path": "/compare", "icon": "git-compare" },
+        { "title": "Watchlist", "path": "/watchlist", "icon": "star", "badge": "alerts" }
+      ]
+    },
+    {
+      "title": "Assistant",
+      "items": [{ "title": "Ask AI", "path": "/assistant", "icon": "sparkles" }]
+    },
+    {
+      "title": "Administration",
+      "items": [
+        { "title": "System status", "path": "/admin/status", "icon": "activity", "adminOnly": true },
+        { "title": "Ingestion", "path": "/admin/ingestion", "icon": "database", "adminOnly": true },
+        { "title": "Users", "path": "/admin/users", "icon": "users", "adminOnly": true },
+        { "title": "Branding", "path": "/admin/branding", "icon": "palette", "adminOnly": true }
+      ]
+    }
+  ]
+}

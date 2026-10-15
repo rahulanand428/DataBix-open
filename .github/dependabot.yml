@@ -1,0 +1,17 @@
+# Keeps the SHA-pinned actions and pinned image tags current. Python packages
+# are hash-locked with uv (see requirements.txt); the dependency-audit CI job
+# flags known vulnerabilities in requirements.lock.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly

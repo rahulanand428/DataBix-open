@@ -9,5 +9,6 @@ class UserCreate(UserBase):
 class User(UserBase):
     id: int
     is_active: bool
+    is_admin: bool
 
     model_config = ConfigDict(from_attributes=True)
