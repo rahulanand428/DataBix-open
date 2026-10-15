@@ -5,9 +5,15 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .env
+.env.*
+!.env.example
 backend_data/
 postgres_data/
 mongo_data/
 data/
 docs/
 skills/
+tests/
+certs/
+nginx/
+docker-compose*.yml

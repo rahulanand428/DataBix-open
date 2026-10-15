@@ -1,5 +1,5 @@
 discovery.docker "containers" {
-	host = "unix:///var/run/docker.sock"
+	host = "tcp://docker_socket_proxy:2375"
 }
 
 discovery.relabel "fastapi_logs" {
@@ -23,7 +23,7 @@ discovery.relabel "fastapi_logs" {
 }
 
 loki.source.docker "scrape" {
-  host       = "unix:///var/run/docker.sock"
+	host       = "tcp://docker_socket_proxy:2375"
 	targets    = discovery.relabel.fastapi_logs.output
 	forward_to = [loki.write.default.receiver]
 }

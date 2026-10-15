@@ -9,6 +9,7 @@ from auth.model import Token
 from auth.schemas import UserCreate, UserResponse
 from auth.utils import create_access_token, get_password_hash
 from models.user_models import User
+from settings import env_flag
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -30,6 +31,11 @@ def login_for_access_token(
 
 @router.post("/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def signup(user: UserCreate, db: DatabaseSession) -> User:
+    if not env_flag("AUTH_SIGNUP_ENABLED"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Self-service signup is disabled",
+        )
     if get_user(db, username=user.username) is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

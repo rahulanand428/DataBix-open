@@ -2,36 +2,57 @@ import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from jose import jwt
-from passlib.context import CryptContext
+import bcrypt
+import jwt
 
 
-SECRET_KEY = os.getenv("JWT_SECRET_KEY")
-if not SECRET_KEY:
-    raise RuntimeError("JWT_SECRET_KEY must be configured before starting the API")
+MIN_SECRET_KEY_BYTES = 32
+BCRYPT_MAX_PASSWORD_BYTES = 72
+
+
+def load_secret_key(value: str | None) -> str:
+    # HS256 keys shorter than the digest size are brute-forceable, and this also
+    # rejects copied placeholders such as the one in .env.example.
+    if not value or len(value.encode("utf-8")) < MIN_SECRET_KEY_BYTES:
+        raise RuntimeError(
+            f"JWT_SECRET_KEY must be a random value of at least {MIN_SECRET_KEY_BYTES} bytes; "
+            'generate one with: python -c "import secrets; print(secrets.token_urlsafe(48))"'
+        )
+    return value
+
+
+SECRET_KEY = load_secret_key(os.getenv("JWT_SECRET_KEY"))
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return bcrypt.checkpw(
+            plain_password.encode("utf-8"), hashed_password.encode("utf-8")
+        )
+    except ValueError:
+        # Over-long passwords and malformed hashes never match.
+        return False
 
 
 def get_password_hash(password: str) -> str:
-    if len(password.encode("utf-8")) > 72:
+    encoded = password.encode("utf-8")
+    if len(encoded) > BCRYPT_MAX_PASSWORD_BYTES:
         raise ValueError("bcrypt passwords cannot exceed 72 UTF-8 bytes")
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(encoded, bcrypt.gensalt()).decode("utf-8")
+
+
+# Verified against when a username does not exist, so failed logins take the
+# same time whether or not the account exists.
+DUMMY_PASSWORD_HASH = get_password_hash("databix-timing-equalizer")
 
 
 def create_access_token(
     data: dict[str, Any], expires_delta: timedelta | None = None
 ) -> str:
     to_encode = data.copy()
-    expire = datetime.now(UTC) + (
-        expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    )
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    now = datetime.now(UTC)
+    expire = now + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    to_encode.update({"iat": now, "exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)

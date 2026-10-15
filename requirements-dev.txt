@@ -1,0 +1,8 @@
+# Test and CI tooling; not installed in the runtime image. CI installs the
+# hash-pinned requirements-dev.lock, generated (constrained to the runtime lock) with:
+#   uv pip compile requirements-dev.txt -c requirements.lock --universal \
+#     --python-version 3.12 --generate-hashes --exclude-newer <date two weeks ago> \
+#     -o requirements-dev.lock
+pytest>=9.0.3,<10.0
+pytest-asyncio>=1.1,<2.0
+pip-audit>=2.10,<3.0

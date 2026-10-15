@@ -1,0 +1,17 @@
+# HTTPS for network-facing deployments:
+#   docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d
+# Place the certificate chain and private key at certs/fullchain.pem and
+# certs/privkey.pem (for example from Let's Encrypt). Port 80 only redirects.
+services:
+  reverse_proxy:
+    ports: !override
+      - "${NGINX_HTTP_PUBLIC_BINDING:-80}:80"
+      - "${NGINX_HTTPS_BINDING:-443}:443"
+    volumes:
+      - ./nginx/nginx.tls.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+
+  # Only nginx reaches the API, so TLS and rate limits cannot be bypassed via
+  # the loopback port used for local development.
+  backend:
+    ports: !reset []

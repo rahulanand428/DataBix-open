@@ -96,7 +96,7 @@ def _mongo_operations(
             "source_hash": normalized["source_hash"],
             "source_file": source_file,
             "source_row_number": normalized["source_row_number"],
-            "ingested_at": ingested_at,
+            "last_ingested_at": ingested_at,
             "raw": raw,
             "normalized": {
                 "date": normalized["trade_date"].isoformat(),
@@ -105,7 +105,14 @@ def _mongo_operations(
                 "quantity": normalized["quantity"],
             },
         }
-        operations.append(UpdateOne({"_id": record_id}, {"$set": document}, upsert=True))
+        # ingested_at records the first load only; re-runs update last_ingested_at.
+        operations.append(
+            UpdateOne(
+                {"_id": record_id},
+                {"$set": document, "$setOnInsert": {"ingested_at": ingested_at}},
+                upsert=True,
+            )
+        )
     return operations
 
 

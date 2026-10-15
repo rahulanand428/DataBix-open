@@ -3,12 +3,15 @@ from datetime import date as DateValue
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
+MAX_OFFSET = 1_000_000
+
+
 class ShortSellingFilters(BaseModel):
     date_from: DateValue | None = None
     date_to: DateValue | None = None
     symbol: str | None = Field(default=None, min_length=1, max_length=32)
     limit: int = Field(default=100, ge=1, le=1_000)
-    offset: int = Field(default=0, ge=0)
+    offset: int = Field(default=0, ge=0, le=MAX_OFFSET)
 
     @field_validator("symbol")
     @classmethod

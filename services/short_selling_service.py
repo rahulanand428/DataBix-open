@@ -1,6 +1,7 @@
 import hashlib
 import json
 import logging
+import threading
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -25,6 +26,18 @@ logger = logging.getLogger(__name__)
 CACHE_KEY_PREFIX = "short_selling:v1"
 CACHE_TTL_SECONDS = 300
 DATAFILES_DIRECTORY = Path(__file__).resolve().parents[1] / "datafiles"
+
+# The API runs a single uvicorn worker; this keeps concurrent ingestion
+# requests from piling up in the threadpool and starving every other route.
+_INGESTION_LOCK = threading.Lock()
+
+
+class InvalidIngestionFilenameError(ValueError):
+    """The requested filename is not a CSV basename inside datafiles."""
+
+
+class IngestionInProgressError(RuntimeError):
+    """Another ingestion is already running in this process."""
 
 
 class ShortSellingService:
@@ -90,37 +103,50 @@ class ShortSellingService:
     def ingest_csv(
         self, filename: str | None = None, chunk_size: int = 1_000
     ) -> IngestionResult:
+        """Ingest a CSV named by an API caller; only basenames inside datafiles are allowed."""
         csv_path = DEFAULT_SHORT_SELLING_CSV
         if filename is not None:
             candidate_name = Path(filename)
-            if candidate_name.is_absolute():
-                csv_path = candidate_name
-            else:
-                if (
-                    candidate_name.name != filename
-                    or "/" in filename
-                    or "\\" in filename
-                    or candidate_name.suffix.lower() != ".csv"
-                    or filename in {".", ".."}
-                ):
-                    raise ValueError("filename must be a CSV filename without a directory path")
-                datafiles_directory = DATAFILES_DIRECTORY.resolve()
-                csv_path = (datafiles_directory / filename).resolve()
-                if not csv_path.is_relative_to(datafiles_directory):
-                    raise ValueError("filename must refer to a CSV inside datafiles")
+            if (
+                candidate_name.is_absolute()
+                or candidate_name.name != filename
+                or "/" in filename
+                or "\\" in filename
+                or candidate_name.suffix.lower() != ".csv"
+                or filename in {".", ".."}
+            ):
+                raise InvalidIngestionFilenameError(
+                    "filename must be a CSV filename without a directory path"
+                )
+            datafiles_directory = DATAFILES_DIRECTORY.resolve()
+            csv_path = (datafiles_directory / filename).resolve()
+            if not csv_path.is_relative_to(datafiles_directory):
+                raise InvalidIngestionFilenameError(
+                    "filename must refer to a CSV inside datafiles"
+                )
             if not csv_path.is_file():
                 raise FileNotFoundError(filename)
+        return self.ingest_path(csv_path, chunk_size=chunk_size)
 
-        result = ingest_short_selling_csv(
-            csv_path=csv_path,
-            chunk_size=chunk_size,
-            mongo_database=(
-                self._mongo_database
-                if self._mongo_database is not None
-                else get_mongo_database()
-            ),
-            session_factory=self._session_factory,
-        )
+    def ingest_path(
+        self, csv_path: str | Path, chunk_size: int = 1_000
+    ) -> IngestionResult:
+        """Ingest any CSV path; for trusted operator tooling such as the CLI only."""
+        if not _INGESTION_LOCK.acquire(blocking=False):
+            raise IngestionInProgressError("An ingestion is already running")
+        try:
+            result = ingest_short_selling_csv(
+                csv_path=Path(csv_path),
+                chunk_size=chunk_size,
+                mongo_database=(
+                    self._mongo_database
+                    if self._mongo_database is not None
+                    else get_mongo_database()
+                ),
+                session_factory=self._session_factory,
+            )
+        finally:
+            _INGESTION_LOCK.release()
         if result.postgres_rows:
             self.invalidate_cache()
         return result
